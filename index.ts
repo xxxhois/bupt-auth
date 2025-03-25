@@ -97,6 +97,13 @@ export class CaptchaError extends Error {
   }
 
   /**
+   * @returns cookie
+   */
+  cookie(): string {
+    return this.session.cookie;
+  }
+
+  /**
    * 传入验证码
    * 
    * @param captcha 验证码
@@ -114,7 +121,7 @@ async function getCookieAndExecution(username: string, password: string) {
   const res = await fetch(
     "https://auth.bupt.edu.cn/authserver/login?service=https://ucloud.bupt.edu.cn"
   );
-  const cookie = res.headers.get("set-cookie");
+  const cookie = res.headers.get("set-cookie")?.split(";")?.[0];
   if (!cookie || !cookie.length) {
     throw new Error(`登录失败(-1): 无法获取到 cookie`);
   }

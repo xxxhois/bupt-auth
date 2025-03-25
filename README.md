@@ -15,7 +15,9 @@ try {
 } catch (e) {
     if (e instanceof CaptchaError) {
         // 如果需要验证码
-        console.log("Captchas required. Captcha URL: ", e.captcha());
+        console.log("Captchas required. ")
+        console.log("\tCaptcha URL: ", e.captcha());
+        console.log("\tCookie:", e.cookie())
         const captcha = await input("Captcha: ");
         const res: UserInfo = await e.resolve(captcha);
         console.log(res)

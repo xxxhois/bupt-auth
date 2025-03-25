@@ -9,7 +9,9 @@ async function login_auth(): Promise<UserInfo> {
         return res;
     } catch (e) {
         if (e instanceof CaptchaError) {
-            console.log("Captchas required. Captcha URL: ", e.captcha());
+            console.log("Captchas required. ")
+            console.log("\tCaptcha URL: ", e.captcha());
+            console.log("\tCookie:", e.cookie())
             const captcha = await input("Captcha: ");
             const res = await e.resolve(captcha);
             return res;
