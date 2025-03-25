@@ -1,5 +1,11 @@
 # bupt-auth
 
+## 安装
+
+见 [jsr.io/@byrdocs/bupt-auth](https://jsr.io/@byrdocs/bupt-auth)。
+
+## 使用
+
 ```ts
 import { login, CaptchaError, type UserInfo } from "@byrdocs/bupt-auth";
 
