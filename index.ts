@@ -27,9 +27,9 @@ export type UserInfo = {
   jti: string;
 };
 
-/** 
+/**
  * **refresh** 函数用于刷新 token，需要传入 refresh_token。
-*/
+ */
 export async function refresh(refresh_token: string): Promise<UserInfo> {
   const body: FormData = new FormData();
   body.append("grant_type", "refresh_token");
@@ -52,13 +52,13 @@ type Session = {
   id: string;
   cookie: string;
   execution: string;
-}
+};
 
 /**
  * **CaptchaError** 错误类，当登录时需要验证码时会抛出这个错误。
- * 
+ *
  * 可以通过 {@link captcha} 方法获取验证码的 URL，通过 {@link resolve}(captcha: string) 方法来传入验证码。例如
- * 
+ *
  * ```ts
  * try {
  *    return await login(bupt_id, bupt_pass);
@@ -69,19 +69,22 @@ type Session = {
  *     throw e;
  *   }
  * }
- * 
+ *
  */
 export class CaptchaError extends Error {
   session: Session;
   username: string;
   password: string;
-  constructor(message: string, data: {
-    id: string
-    cookie: string
-    execution: string;
-    username: string;
-    password: string;
-  }) {
+  constructor(
+    message: string,
+    data: {
+      id: string;
+      cookie: string;
+      execution: string;
+      username: string;
+      password: string;
+    }
+  ) {
     super(message);
     this.name = "CaptchaError";
     this.session = data;
@@ -93,7 +96,9 @@ export class CaptchaError extends Error {
    * @returns 验证码的 URL
    */
   captcha(): string {
-    return `https://auth.bupt.edu.cn/authserver/captcha?captchaId=${this.session.id}&r=${Math.random().toString().slice(2,7)}`
+    return `https://auth.bupt.edu.cn/authserver/captcha?captchaId=${
+      this.session.id
+    }&r=${Math.random().toString().slice(2, 7)}`;
   }
 
   /**
@@ -105,14 +110,14 @@ export class CaptchaError extends Error {
 
   /**
    * 传入验证码
-   * 
+   *
    * @param captcha 验证码
    * @returns Promise<{@link UserInfo}>
    */
   async resolve(captcha: string): Promise<UserInfo> {
     return await login(this.username, this.password, {
-        ...this.session,
-        captcha
+      ...this.session,
+      captcha,
     });
   }
 }
@@ -139,22 +144,21 @@ async function getCookieAndExecution(username: string, password: string) {
       cookie,
       execution,
       username,
-      password
-    })
+      password,
+    });
   }
   return { cookie, execution };
 }
 
-
 /**
  * **login** 函数用于登录，需要传入用户名和密码。
- * 
+ *
  * ```ts
  * await login("username", "password");
  * ```
- * 
+ *
  * 当登录时需要验证码时会抛出 {@link CaptchaError} 错误，传入验证码的方式详见 {@link CaptchaError}。
- * 
+ *
  * @param username 用户名
  * @param password 密码
  * @param session 验证码的 session
@@ -165,7 +169,8 @@ export async function login(
   password: string,
   session?: Session & { captcha: string }
 ): Promise<UserInfo> {
-  const { cookie, execution } = session ?? await getCookieAndExecution(username, password);
+  const { cookie, execution } =
+    session ?? (await getCookieAndExecution(username, password));
   const bodyp = `username=${encodeURIComponent(
     username
   )}&password=${encodeURIComponent(password)}`;
@@ -183,7 +188,8 @@ export async function login(
           "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36 Edg/118.0.2088.61",
       },
       body:
-        bodyp + (session?.captcha ? `&captcha=${session.captcha}` : "") +
+        bodyp +
+        (session?.captcha ? `&captcha=${session.captcha}` : "") +
         "&submit=%E7%99%BB%E5%BD%95&type=username_password&execution=" +
         execution +
         "&_eventId=submit",
@@ -242,4 +248,48 @@ export async function login(
     throw new Error(`登录失败(7): ${response.status} ${response.statusText}`);
   }
   return await response.json();
+}
+
+async function ocr(captcha: CaptchaError, token: string) {
+  const res = await fetch("https://ocr.byrdocs.org/ocr?" + new URLSearchParams({
+    url: captcha.captcha(),
+    token,
+    cookie: captcha.cookie()
+  }))
+  const data = await res.json() as { text?: string, detail?: string }
+  if (!data.text) throw new Error("OCR Error: " + data.detail)
+  return data.text
+}
+
+/**
+ * @param username 学号
+ * @param password 密码
+ * @param token byrdocs ocr token
+ * @param retry 重试次数（默认为 1）
+ * @returns Promise<{@link UserInfo}>
+ */
+export async function byrdocs_login(
+  username: string,
+  password: string,
+  token: string,
+  retry = 1
+): Promise<UserInfo> {
+  try {
+    const data = await login(username, password);
+    return data;
+  } catch (e) {
+    if (e instanceof CaptchaError) {
+      const captcha = await ocr(e, token);
+      try {
+        return await e.resolve(captcha);
+      } catch (e) {
+        if (retry > 0) {
+          return await byrdocs_login(username, password, token, retry - 1);
+        }
+        throw e;
+      }
+    } else {
+      throw e;
+    }
+  }
 }

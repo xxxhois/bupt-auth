@@ -18,6 +18,7 @@ try {
         console.log("Captchas required. ")
         console.log("\tCaptcha URL: ", e.captcha());
         console.log("\tCookie:", e.cookie())
+        // 携带 cookie 获取验证码图片，然后输入验证码
         const captcha = await input("Captcha: ");
         const res: UserInfo = await e.resolve(captcha);
         console.log(res)
