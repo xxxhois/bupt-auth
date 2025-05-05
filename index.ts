@@ -28,6 +28,26 @@ export type UserInfo = {
 };
 
 /**
+ * **LoginError** 错误类，当登录失败时会抛出这个错误。
+ */
+export class LoginError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "LoginError";
+  }
+}
+
+/**
+ * **OCRError** 错误类，当验证码识别失败时会抛出这个错误。
+ */
+export class OCRError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "OCRError";
+  }
+}
+
+/**
  * **refresh** 函数用于刷新 token，需要传入 refresh_token。
  */
 export async function refresh(refresh_token: string): Promise<UserInfo> {
@@ -128,12 +148,12 @@ async function getCookieAndExecution(username: string, password: string) {
   );
   const cookie = res.headers.get("set-cookie")?.split(";")?.[0];
   if (!cookie || !cookie.length) {
-    throw new Error(`登录失败(-1): 无法获取到 cookie`);
+    throw new LoginError(`登录失败(-1): 无法获取到 cookie`);
   }
   const html = await res.text();
   const executions = html.match(/<input name="execution" value="(.*?)"/);
   if (!executions || !executions.length) {
-    throw new Error(`登录失败(-2): 无法获取到 execution`);
+    throw new LoginError(`登录失败(-2): 无法获取到 execution`);
   }
   const execution = executions[1];
   const capthas = html.match(/config.captcha[^{]*{[^}]*id: '(.*?)'/);
@@ -204,14 +224,14 @@ export async function login(
     const error = errors?.[1];
     if (response.status === 401) {
       if (error) {
-        throw new Error(
+        throw new LoginError(
           error === "Invalid credentials."
             ? "登录失败(3): 用户名或者密码错误"
             : "登录失败(4): " + error
         );
-      } else throw new Error("登录失败(2): 未知错误");
+      } else throw new LoginError("登录失败(2): 未知错误");
     }
-    throw new Error(
+    throw new LoginError(
       "登录失败(1): " +
         response.status +
         " " +
@@ -221,12 +241,12 @@ export async function login(
   }
   const location = response.headers.get("Location");
   if (!location) {
-    throw new Error("登录失败(5): 无法获取到重定向目标");
+    throw new LoginError("登录失败(5): 无法获取到重定向目标");
   }
   const urlParams = new URLSearchParams(new URL(location).search);
   const ticket = urlParams.get("ticket");
   if (!ticket) {
-    throw new Error("登录失败(6): 无法获取到ticket");
+    throw new LoginError("登录失败(6): 无法获取到ticket");
   }
   response = await fetch(
     "https://apiucloud.bupt.edu.cn/ykt-basics/oauth/token",
@@ -245,7 +265,7 @@ export async function login(
   );
 
   if (!response.ok) {
-    throw new Error(`登录失败(7): ${response.status} ${response.statusText}`);
+    throw new LoginError(`登录失败(7): ${response.status} ${response.statusText}`);
   }
   return await response.json();
 }
@@ -257,7 +277,7 @@ async function ocr(captcha: CaptchaError, token: string) {
     cookie: captcha.cookie()
   }))
   const data = await res.json() as { text?: string, detail?: string }
-  if (!data.text) throw new Error("OCR Error: " + data.detail)
+  if (!data.text) throw new OCRError("OCRError:" + (data.detail ?? "Unknown error"));
   return data.text
 }
 
