@@ -1,9 +1,10 @@
 export async function input(message?: string): Promise<string> {
   if (message) process.stdout.write(message);
-  for await (const line of console) {
-    return line.trim();
-  }
-  return '';
+  return new Promise((resolve) => {
+    process.stdin.once('data', (data) => {
+      resolve(data.toString().trim());
+    });
+  });
 }
 
 export async function getTestAccount() {
